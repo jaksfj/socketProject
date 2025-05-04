@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>음악 공유 시스템</title>
+</head>
+<body>
+<h1>🎵 음악 공유 시스템</h1>
+
+<p th:text="'환영합니다, ' + ${nickname} + '님!'"></p>
+
+<!-- 숨겨진 닉네임 전달용 -->
+<form id="commandForm" action="/command" method="post">
+    <input type="hidden" name="nickname" th:value="${nickname}" />
+    <input type="hidden" name="command" id="commandInput" />
+</form>
+
+<!-- 버튼으로 명령 전송 -->
+<button onclick="sendCommand('/addfriend 홍길동')">👥 친구 추가 (홍길동)</button><br><br>
+<button onclick="sendCommand('/sendmusic 홍길동 BeautifulDay 좋은 노래야~')">🎶 음악 전송</button><br><br>
+<button onclick="sendCommand('/chat 홍길동 안녕~!')">💬 채팅 보내기</button><br><br>
+<button onclick="sendCommand('/like BeautifulDay')">👍 좋아요</button>
+<button onclick="sendCommand('/dislike BeautifulDay')">👎 싫어요</button>
+
+<!-- 서버 응답 표시 -->
+<p th:if="${response}" th:utext="${response}"></p>
+
+<script>
+    function sendCommand(commandText) {
+        document.getElementById("commandInput").value = commandText;
+        document.getElementById("commandForm").submit();
+    }
+</script>
+</body>
+</html>

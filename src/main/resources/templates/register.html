@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>회원 등록</title>
+</head>
+<body>
+<h2>닉네임을 입력하세요</h2>
+<form method="post" action="/register">
+    <input type="text" name="nickname" required>
+    <button type="submit">등록</button>
+</form>
+<p th:if="${error}" th:text="${error}" id="errorMsg" style="color:red;"></p>
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    let errorMsg = /*[[${error}]]*/ null;
+    if (errorMsg) {
+        alert(errorMsg);
+    }
+    /*]]>*/
+</script>
+</body>
+</html>
