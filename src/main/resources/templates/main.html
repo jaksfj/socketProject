@@ -2,34 +2,132 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>음악 공유 시스템</title>
+    <title>음악 추천 시스템</title>
 </head>
 <body>
-<h1>🎵 음악 공유 시스템</h1>
+<h1>🎵 음악 추천 시스템</h1>
 
 <p th:text="'환영합니다, ' + ${nickname} + '님!'"></p>
 
-<!-- 숨겨진 닉네임 전달용 -->
-<form id="commandForm" action="/command" method="post">
-    <input type="hidden" name="nickname" th:value="${nickname}" />
-    <input type="hidden" name="command" id="commandInput" />
-</form>
+<!-- 숨겨진 닉네임 -->
+<input type="hidden" id="nickname" th:value="${nickname}" />
 
-<!-- 버튼으로 명령 전송 -->
-<button onclick="sendCommand('/addfriend 홍길동')">👥 친구 추가 (홍길동)</button><br><br>
-<button onclick="sendCommand('/sendmusic 홍길동 BeautifulDay 좋은 노래야~')">🎶 음악 전송</button><br><br>
-<button onclick="sendCommand('/chat 홍길동 안녕~!')">💬 채팅 보내기</button><br><br>
-<button onclick="sendCommand('/like BeautifulDay')">👍 좋아요</button>
-<button onclick="sendCommand('/dislike BeautifulDay')">👎 싫어요</button>
+<!-- 장르 선택 -->
+<label for="genreSelect">장르 선택:</label>
+<select id="genreSelect" onchange="loadArtists()">
+    <option value="">-- 장르 선택 --</option>
+</select>
+<br><br>
 
-<!-- 서버 응답 표시 -->
-<p th:if="${response}" th:utext="${response}"></p>
+<!-- 가수 선택 -->
+<label for="artistSelect">가수 선택:</label>
+<select id="artistSelect" onchange="loadSongs()" disabled>
+    <option value="">-- 가수 선택 --</option>
+</select>
+<br><br>
+
+<!-- 추천 곡 리스트 -->
+<div id="songList">
+    <p>🎧 추천 곡 목록:</p>
+    <ul id="songsUl"></ul>
+</div>
+
+<!-- 저장 버튼 -->
+<button id="saveBtn" onclick="saveSong()" disabled>🎵 플레이리스트에 저장</button>
+
+<!-- 서버 응답 -->
+<p id="responseText" style="color: green;"></p>
 
 <script>
-    function sendCommand(commandText) {
-        document.getElementById("commandInput").value = commandText;
-        document.getElementById("commandForm").submit();
+    let selectedSong = null;
+
+    // 페이지 로드 시 장르 불러오기
+    window.onload = function () {
+        fetch('/genres')
+            .then(response => response.json())
+            .then(data => {
+                const genreSelect = document.getElementById('genreSelect');
+                data.forEach(genre => {
+                    const option = document.createElement('option');
+                    option.value = genre;
+                    option.textContent = genre;
+                    genreSelect.appendChild(option);
+                });
+            });
+    };
+
+    // 장르 선택 시 해당 가수 불러오기
+    function loadArtists() {
+        const genre = document.getElementById('genreSelect').value;
+        const artistSelect = document.getElementById('artistSelect');
+        artistSelect.innerHTML = '<option value="">-- 가수 선택 --</option>';
+        document.getElementById('songsUl').innerHTML = '';
+        document.getElementById('saveBtn').disabled = true;
+        selectedSong = null;
+
+        if (!genre) {
+            artistSelect.disabled = true;
+            return;
+        }
+
+        fetch(`/artists?genre=${genre}`)
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(artist => {
+                    const option = document.createElement('option');
+                    option.value = artist;
+                    option.textContent = artist;
+                    artistSelect.appendChild(option);
+                });
+                artistSelect.disabled = false;
+            });
+    }
+
+    // 가수 선택 시 해당 노래 불러오기
+    function loadSongs() {
+        const genre = document.getElementById('genreSelect').value;
+        const artist = document.getElementById('artistSelect').value;
+        const songsUl = document.getElementById('songsUl');
+        songsUl.innerHTML = '';
+        document.getElementById('saveBtn').disabled = true;
+        selectedSong = null;
+
+        if (!artist) return;
+
+        fetch(`/songs?genre=${genre}&artist=${artist}`)
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(song => {
+                    const li = document.createElement('li');
+                    li.textContent = song.title;
+                    li.style.cursor = "pointer";
+                    li.onclick = function () {
+                        document.querySelectorAll('#songsUl li').forEach(el => el.style.fontWeight = 'normal');
+                        this.style.fontWeight = 'bold';
+                        selectedSong = song.title;
+                        document.getElementById('saveBtn').disabled = false;
+                    };
+                    songsUl.appendChild(li);
+                });
+            });
+    }
+
+    // 선택한 곡 저장 요청
+    function saveSong() {
+        const nickname = document.getElementById('nickname').value;
+        const songTitle = selectedSong;
+
+        fetch('/playlist/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nickname: nickname, song: songTitle })
+        })
+            .then(res => res.text())
+            .then(result => {
+                document.getElementById('responseText').textContent = result;
+            });
     }
 </script>
 </body>
 </html>
+
