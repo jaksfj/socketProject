@@ -3,9 +3,11 @@ package edu.network.musicweb.webserver.repository;
 import edu.network.musicweb.webserver.entity.Song;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+@Repository
 public interface SongRepository extends JpaRepository<Song, Long> {
     // 모든 장르를 중복없이 조회
     @Query("SELECT DISTINCT song.genre from Song song")

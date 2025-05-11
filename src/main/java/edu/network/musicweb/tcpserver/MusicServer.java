@@ -20,6 +20,7 @@ public class MusicServer { // TCP 서버의 main 클래스
             System.out.println("🎵 Music TCP Server started on port " + PORT); // 서버가 정상적으로 열림
             while (true) { // 무한 로프를 돌며 클라이언트의 접속을 기다린다.
                 Socket socket = serverSocket.accept(); // Socket 객체를 받아온다.
+                System.out.println("🟢 클라이언트 접속됨: " + socket.getInetAddress());
                 // 새로운 클라이언트를 처리할 ClientHandler 객체를 생성
                 ClientHandler handler = new ClientHandler(socket, clients);
                 handler.start(); // 스레드 시작

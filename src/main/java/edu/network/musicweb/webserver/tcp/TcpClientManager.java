@@ -64,9 +64,26 @@ public class TcpClientManager {
             PrintWriter writer = writerMap.get(nickname);
             BufferedReader reader = readerMap.get(nickname);
 
-            writer.println(command); // 명령어 전송
-            return reader.readLine(); // 응답 1줄 받기
+            writer.println(command);
+            writer.flush(); // 반드시 필요
 
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.equals("[END]")) break;
+                sb.append(line).append("\n");
+            }
+
+            if (command.equals("/disconnect")) { // tcp 서버에서 보낸 소켓 연결해제 요청을 스프링 서버에서도 처리
+                Socket socket = socketMap.get(nickname);
+                if (socket != null && !socket.isClosed()) socket.close();
+                socketMap.remove(nickname);
+                writerMap.remove(nickname);
+                readerMap.remove(nickname);
+                System.out.println("Spring 서버에서" + nickname + " 연결 종료");
+            }
+
+            return sb.toString().trim(); // 여러 줄의 응답처리
         } catch (IOException e) {
             return "명령어 전송 오류: " + e.getMessage();
         }

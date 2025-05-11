@@ -38,12 +38,37 @@
 <!-- 서버 응답 -->
 <p id="responseText" style="color: green;"></p>
 
+<!-- 플레이리스트 조회 버튼 -->
+<br><br>
+<button onclick="loadPlaylist()">📂 내 플레이리스트 보기</button>
+
+<!-- 플레이리스트 출력 -->
+<div id="myPlaylist">
+    <p>🎵 내 플레이리스트:</p>
+    <ul id="playlistUl"></ul>
+</div>
+
+<!-- 친구 추가 섹션 -->
+<hr>
+<h3>👥 친구 추가</h3>
+<label for="friendName">추가할 친구 닉네임:</label>
+<input type="text" id="friendName" placeholder="예: 홍길동" />
+<button onclick="addFriend()">➕ 친구 추가</button>
+<p id="friendResponse" style="color: blue;"></p>
+
+<!-- 친구 목록 조회 -->
+<h3>📋 친구 목록</h3>
+<button onclick="loadFriends()">👀 친구 목록 보기</button>
+<div id="friendListContainer">
+    <ul id="friendListUl"></ul>
+</div>
+
 <script>
     let selectedSong = null;
 
     // 페이지 로드 시 장르 불러오기
     window.onload = function () {
-        fetch('/genres')
+        fetch('/api/genres')
             .then(response => response.json())
             .then(data => {
                 const genreSelect = document.getElementById('genreSelect');
@@ -70,7 +95,7 @@
             return;
         }
 
-        fetch(`/artists?genre=${genre}`)
+        fetch(`/api/artists?genre=${genre}`)
             .then(response => response.json())
             .then(data => {
                 data.forEach(artist => {
@@ -94,7 +119,7 @@
 
         if (!artist) return;
 
-        fetch(`/songs?genre=${genre}&artist=${artist}`)
+        fetch(`/api/songs?genre=${genre}&artist=${artist}`)
             .then(response => response.json())
             .then(data => {
                 data.forEach(song => {
@@ -117,7 +142,7 @@
         const nickname = document.getElementById('nickname').value;
         const songTitle = selectedSong;
 
-        fetch('/playlist/add', {
+        fetch('/api/playlist/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nickname: nickname, song: songTitle })
@@ -126,6 +151,197 @@
             .then(result => {
                 document.getElementById('responseText').textContent = result;
             });
+    }
+
+    // 플레이리스트 조회
+    function loadPlaylist() {
+        const nickname = document.getElementById('nickname').value;
+        const playlistUl = document.getElementById('playlistUl');
+        playlistUl.innerHTML = '';
+
+        fetch(`/api/playlist?nickname=${nickname}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.length === 0) {
+                    playlistUl.innerHTML = '<li>(저장된 곡이 없습니다)</li>';
+                } else {
+                    data.forEach(song => {
+                        const li = document.createElement('li');
+                        li.textContent = song;
+                        playlistUl.appendChild(li);
+                    });
+                }
+            });
+    }
+
+    // 친구 추가
+    function addFriend() {
+        const nickname = document.getElementById('nickname').value;
+        const friendName = document.getElementById('friendName').value;
+
+        if (!friendName) {
+            alert("친구 닉네임을 입력하세요.");
+            return;
+        }
+
+        const command = `/addfriend ${friendName}`;
+
+        fetch('/command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ nickname: nickname, command: command })
+        })
+            .then(res => res.text())
+            .then(result => {
+                document.getElementById('friendResponse').textContent = result;
+            });
+    }
+
+    // 브라우저를 종료하면 해당 소켓 유저 연결해제
+    window.addEventListener('beforeunload', function () {
+        const nickname = document.getElementById('nickname').value;
+        if (!nickname) return;
+
+        navigator.sendBeacon('/command', new URLSearchParams({
+            nickname: nickname,
+            command: '/disconnect'
+        }));
+    });
+
+    // 친구 목록 가져오기
+    function loadFriends() {
+        const nickname = document.getElementById('nickname').value;
+
+        fetch('/command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                nickname: nickname,
+                command: '/friendlist'
+            })
+        })
+            .then(res => res.text())
+            .then(result => {
+                const ul = document.getElementById('friendListUl');
+                ul.innerHTML = '';
+
+                const lines = result.split('\n');
+                ul.innerHTML = '';
+
+                const friendLines = lines.filter(line => line.startsWith("- "));
+                if (friendLines.length === 0) {
+                    ul.innerHTML = '<li>(친구 없음)</li>';
+                } else {
+                    friendLines.forEach(friend => {
+                        const name = friend.replace("- ", "").trim(); // 정확한 친구 이름만 추출 ("-"로 시작)
+                        const li = document.createElement('li');
+                        li.innerHTML = `
+            <strong>${name}</strong>
+            <button onclick="showSendUI('${name}')">음악과 메세지 보내기!</button>
+            <div id="sendBox-${name}" style="display:none; margin-top:10px;">
+                <label>곡 선택:</label>
+                <select id="songSelect-${name}"></select><br>
+                <label>메세지:</label>
+                <input type="text" id="msgInput-${name}" placeholder="메세지를 입력하세요"/><br>
+                <button onclick="sendMusicMessage('${name}')">전송</button>
+            </div>
+        `;
+                        ul.appendChild(li);
+                    });
+                }
+            });
+    }
+
+    // 플레이리스트 불러오는 메서드 -> loadFriends()에서 사용
+    function showSendUI(friend) {
+        const box = document.getElementById(`sendBox-${friend}`);
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+
+        const nickname = document.getElementById('nickname').value;
+        const songSelect = document.getElementById(`songSelect-${friend}`);
+        songSelect.innerHTML = '';
+
+        fetch(`/api/playlist?nickname=${nickname}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.length === 0) {
+                    const option = document.createElement('option');
+                    option.textContent = '(플레이리스트 없음)';
+                    option.disabled = true;
+                    songSelect.appendChild(option);
+                } else {
+                    data.forEach(song => {
+                        const option = document.createElement('option');
+                        option.value = song;
+                        option.textContent = song;
+                        songSelect.appendChild(option);
+                    });
+                }
+            });
+    }
+
+    // 음악과 메세지를 전송하는 메서드
+    function sendMusicMessage(friend) {
+        const nickname = document.getElementById('nickname').value;
+        const song = document.getElementById(`songSelect-${friend}`).value;
+        const message = document.getElementById(`msgInput-${friend}`).value;
+
+        if (!song || !message) {
+            alert("곡과 메시지를 모두 입력하세요.");
+            return;
+        }
+
+        const command = `/sendmusic ${friend} ${song} ${message}`;
+
+        fetch('/command', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ nickname: nickname, command: command })
+        })
+            .then(res => res.text())
+            .then(result => {
+                if (result.includes("[OPEN_CHAT]")) {
+                    openChatRoom(friend, song, message, nickname); // 아래에 정의할 함수
+                } else {
+                    alert(result);
+                }
+            });
+    }
+
+    // sendMusicMessage 를 보내면 만들어지는 채팅방
+    function openChatRoom(friend, song, message, nickname) {
+        const chatWindow = window.open("", `chat-${friend}`, "width=400,height=600");
+
+        chatWindow.document.write(`
+        <html><head><title>${friend}와의 채팅</title></head><body>
+        <h3>🎵 ${friend}님과의 채팅방</h3>
+        <div id="chatLog" style="height:300px;overflow:auto;border:1px solid #ccc;padding:5px;">
+            <div><strong>나:</strong> ${song} (${message})</div>
+        </div>
+        <input type="text" id="chatInput" placeholder="메시지를 입력하세요" style="width:70%;">
+        <button onclick="sendMessage()">전송</button>
+
+        <script>
+        const nickname = "${nickname}";
+        const friend = "${friend}";
+        function sendMessage() {
+            const msg = document.getElementById('chatInput').value;
+            fetch('/command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    nickname: nickname,
+                    command: '/chat ' + friend + ' ' + msg
+                })
+            }).then(res => res.text()).then(res => {
+                const log = document.getElementById('chatLog');
+                log.innerHTML += '<div><strong>나:</strong> ' + msg + '</div>';
+                document.getElementById('chatInput').value = '';
+            });
+        }
+        <\/script>
+        </body></html>
+    `);
     }
 </script>
 </body>

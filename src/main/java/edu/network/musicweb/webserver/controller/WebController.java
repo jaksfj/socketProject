@@ -37,13 +37,9 @@ public class WebController {
 
     // 실제 명령어 전송
     @PostMapping("/command")
+    @ResponseBody
     public String sendCommand(@RequestParam String nickname,
-                              @RequestParam String command,
-                              Model model) {
-        String response = tcpClientService.sendCommand(nickname, command);
-
-        model.addAttribute("nickname", nickname); // 닉네임 계속 유지
-        model.addAttribute("response", response);
-        return "main"; // 다시 main 페이지로
+                              @RequestParam String command) {
+        return tcpClientService.sendCommand(nickname, command);
     }
 }
